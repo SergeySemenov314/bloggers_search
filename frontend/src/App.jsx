@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { streamAnalyze, streamSearch, estimateCost } from "./api.js";
@@ -20,10 +20,27 @@ const RESULT_TITLE = {
   search: "Найденные блогеры",
 };
 
+// ссылки в результатах открываем в новой вкладке
+const MD_COMPONENTS = {
+  a: (props) => <a {...props} target="_blank" rel="noopener noreferrer" />,
+};
+
 // пустое состояние по каждому этапу
 const empty = () => ({ analyze: null, search: null });
 
+// сохранение результатов между перезагрузками/переходами
+const LS_KEY = "bloggers_search_state_v1";
+const loadSaved = () => {
+  try {
+    return JSON.parse(localStorage.getItem(LS_KEY)) || {};
+  } catch {
+    return {};
+  }
+};
+
 export default function App() {
+  const saved = loadSaved();
+
   const [agent, setAgent] = useState("analyze");
   const [model, setModel] = useState("claude-haiku-4-5");
 
@@ -31,11 +48,23 @@ export default function App() {
   const [runningAgent, setRunningAgent] = useState(null);
 
   // всё состояние держим ОТДЕЛЬНО по каждому этапу, чтобы переключение
-  // вкладок не стирало результаты
-  const [traces, setTraces] = useState({ analyze: [], search: [] });
-  const [usages, setUsages] = useState(empty);
-  const [errors, setErrors] = useState(empty);
-  const [reports, setReports] = useState({ analyze: "", search: "" });
+  // вкладок не стирало результаты; и восстанавливаем из localStorage
+  const [traces, setTraces] = useState(saved.traces || { analyze: [], search: [] });
+  const [usages, setUsages] = useState(saved.usages || empty());
+  const [errors, setErrors] = useState(saved.errors || empty());
+  const [reports, setReports] = useState(saved.reports || { analyze: "", search: "" });
+
+  // при любом изменении результатов — сохраняем, чтобы пережить перезагрузку
+  useEffect(() => {
+    try {
+      localStorage.setItem(
+        LS_KEY,
+        JSON.stringify({ traces, usages, errors, reports })
+      );
+    } catch {
+      // localStorage недоступен — не критично
+    }
+  }, [traces, usages, errors, reports]);
 
   // то, что показываем сейчас — срез по активной вкладке
   const trace = traces[agent];
@@ -164,7 +193,7 @@ export default function App() {
             {error && <div className="error">⚠ {error}</div>}
             {result ? (
               <div className="markdown">
-                <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                <ReactMarkdown remarkPlugins={[remarkGfm]} components={MD_COMPONENTS}>
                   {result}
                 </ReactMarkdown>
               </div>
