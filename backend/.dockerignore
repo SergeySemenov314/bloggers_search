@@ -1,0 +1,8 @@
+__pycache__/
+*.pyc
+.env
+.env.example
+.apify_cache.json
+.base_profiles.json
+.shown_candidates.json
+data/

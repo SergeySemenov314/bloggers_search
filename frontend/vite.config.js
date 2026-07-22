@@ -5,7 +5,10 @@ import react from "@vitejs/plugin-react";
 // Дев-сервер проксирует /api на бэкенд.
 const API_TARGET = process.env.VITE_API_TARGET || "http://localhost:8080";
 
-export default defineConfig({
+// В проде приложение живёт под /bloggers/ (главный nginx на VPS), поэтому
+// сборка идёт с этим base. В деве base=/ — удобнее локально.
+export default defineConfig(({ command }) => ({
+  base: command === "build" ? "/bloggers/" : "/",
   plugins: [react()],
   server: {
     proxy: {
@@ -15,4 +18,4 @@ export default defineConfig({
       },
     },
   },
-});
+}));

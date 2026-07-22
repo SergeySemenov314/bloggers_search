@@ -1,0 +1,31 @@
+services:
+  bloggers-backend:
+    build:
+      context: ./backend
+    container_name: bloggers-backend
+    # Ключи (ANTHROPIC_API_KEY, APIFY_TOKEN, SHEET_ID, SHEET_GID) из backend/.env
+    env_file:
+      - ./backend/.env
+    volumes:
+      # Персист платного кэша Apify и журнала показанных между пересборками
+      - bloggers-data:/app/data
+    networks:
+      - ollama-net
+    restart: unless-stopped
+
+  bloggers-frontend:
+    build:
+      context: ./frontend
+    container_name: bloggers-frontend
+    depends_on:
+      - bloggers-backend
+    networks:
+      - ollama-net
+    restart: unless-stopped
+
+volumes:
+  bloggers-data:
+
+networks:
+  ollama-net:
+    external: true

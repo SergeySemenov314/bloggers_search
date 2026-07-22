@@ -23,16 +23,19 @@ _URL_TMPL = "https://api.apify.com/v2/acts/{actor}/run-sync-get-dataset-items"
 _TIMEOUT = 300
 
 _DIR = os.path.dirname(__file__)
+# Куда складывать кэш/журнал. Локально — корень backend; в Docker задаём
+# DATA_DIR на смонтированный том, чтобы платный кэш Apify переживал пересборку.
+_DATA_DIR = os.environ.get("DATA_DIR") or os.path.join(_DIR, "..")
 # Кэш базы из таблицы — отдельный стабильный файл: собирается один раз и не
 # зависит от прогонов поиска. Кэш поиска (хэштеги + кандидаты) можно чистить,
 # не трогая базу.
-_BASE_CACHE_FILE = os.path.join(_DIR, "..", ".base_profiles.json")
+_BASE_CACHE_FILE = os.path.join(_DATA_DIR, ".base_profiles.json")
 # Кэш прочего (хэштеги, кандидаты) — можно удалять для свежего поиска.
-_CACHE_FILE = os.path.join(_DIR, "..", ".apify_cache.json")
+_CACHE_FILE = os.path.join(_DATA_DIR, ".apify_cache.json")
 # Журнал уже показанных кандидатов — чтобы «новые» не повторялись из кэша.
 # Курсор двигается по одному и тому же собранному пулу авторов, поэтому каждый
 # прогон поднимает СЛЕДУЮЩИХ авторов без единого нового запроса к Apify.
-_SHOWN_FILE = os.path.join(_DIR, "..", ".shown_candidates.json")
+_SHOWN_FILE = os.path.join(_DATA_DIR, ".shown_candidates.json")
 
 
 def load_shown() -> set[str]:

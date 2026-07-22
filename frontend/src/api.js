@@ -1,6 +1,7 @@
 // Клиент к бэкенду. Стрим трейса агента через SSE поверх fetch.
 
-const API = "/api";
+// В проде base = "/bloggers/" → API = "/bloggers/api"; в деве base = "/" → "/api".
+const API = `${import.meta.env.BASE_URL}api`;
 
 // Цены Claude, $/1M токенов (вход/выход) — для оценки стоимости прогона.
 export const PRICING = {
