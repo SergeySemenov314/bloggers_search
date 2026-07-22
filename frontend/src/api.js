@@ -73,3 +73,12 @@ export function streamSearch({ model, portrait }, onEvent) {
     onEvent
   );
 }
+
+// Этап 3 — агент «Офферы» (блогеры из этапа 2 + бриф бренда)
+export function streamOffers({ model, bloggers, brief }, onEvent) {
+  return streamAgent(
+    "/agents/offers/stream",
+    { model, bloggers: bloggers || null, brief: brief || null },
+    onEvent
+  );
+}

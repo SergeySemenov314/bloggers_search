@@ -15,7 +15,7 @@ from pydantic import BaseModel
 
 load_dotenv()
 
-from agents import analyze, search  # noqa: E402 — после load_dotenv, чтобы видеть ключи
+from agents import analyze, search, offers  # noqa: E402 — после load_dotenv, чтобы видеть ключи
 
 app = FastAPI(title="Bloggers Search — AI Agents")
 
@@ -44,11 +44,18 @@ class SearchRequest(BaseModel):
     portrait: str | None = None  # портрет из этапа 1 (если уже получен)
 
 
+class OffersRequest(BaseModel):
+    model: str = "claude-haiku-4-5"
+    bloggers: str | None = None  # результат этапа 2 (отобранные блогеры)
+    brief: str | None = None     # бриф бренда и условия бартера
+
+
 @app.get("/api/agents")
 def list_agents():
     return [
         {"id": "analyze", "name": "🔍 Анализ базы"},
         {"id": "search", "name": "🧭 Поиск новых"},
+        {"id": "offers", "name": "✉️ Офферы"},
     ]
 
 
@@ -64,6 +71,14 @@ def analyze_stream(req: AnalyzeRequest):
 def search_stream(req: SearchRequest):
     return StreamingResponse(
         sse(search.run(req.model, req.portrait)),
+        media_type="text/event-stream",
+    )
+
+
+@app.post("/api/agents/offers/stream")
+def offers_stream(req: OffersRequest):
+    return StreamingResponse(
+        sse(offers.run(req.model, req.bloggers, req.brief)),
         media_type="text/event-stream",
     )
 

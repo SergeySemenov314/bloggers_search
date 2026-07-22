@@ -19,7 +19,7 @@ const RESOLUTION_LABEL = {
   escalate: "Эскалация оператору",
 };
 
-export default function TraceView({ trace, running }) {
+export default function TraceView({ trace = [], running }) {
   if (!trace.length && !running) {
     return <p className="muted">Запустите агента, чтобы увидеть его шаги.</p>;
   }
