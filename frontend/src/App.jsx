@@ -20,54 +20,60 @@ const RESULT_TITLE = {
   search: "Найденные блогеры",
 };
 
+// пустое состояние по каждому этапу
+const empty = () => ({ analyze: null, search: null });
+
 export default function App() {
   const [agent, setAgent] = useState("analyze");
   const [model, setModel] = useState("claude-haiku-4-5");
-  const [running, setRunning] = useState(false);
-  const [trace, setTrace] = useState([]);
-  const [usage, setUsage] = useState(null);
-  const [error, setError] = useState(null);
 
-  // результаты этапов держим отдельно; портрет из этапа 1 → вход этапа 2
-  const [portrait, setPortrait] = useState("");
-  const [found, setFound] = useState("");
+  // какой этап сейчас выполняется (null — ничего)
+  const [runningAgent, setRunningAgent] = useState(null);
 
-  const result = agent === "analyze" ? portrait : found;
+  // всё состояние держим ОТДЕЛЬНО по каждому этапу, чтобы переключение
+  // вкладок не стирало результаты
+  const [traces, setTraces] = useState({ analyze: [], search: [] });
+  const [usages, setUsages] = useState(empty);
+  const [errors, setErrors] = useState(empty);
+  const [reports, setReports] = useState({ analyze: "", search: "" });
 
-  function onEvent(ev) {
-    if (ev.type === "final") {
-      setUsage(ev.usage);
-      if (agent === "analyze") setPortrait(ev.report);
-      else setFound(ev.report);
-    } else if (ev.type === "error") {
-      setError(ev.message);
-    } else {
-      setTrace((prev) => [...prev, ev]);
-    }
-  }
-
-  function reset() {
-    setTrace([]);
-    setUsage(null);
-    setError(null);
-  }
+  // то, что показываем сейчас — срез по активной вкладке
+  const trace = traces[agent];
+  const usage = usages[agent];
+  const error = errors[agent];
+  const result = reports[agent];
+  const running = runningAgent !== null;
+  const cost = usage ? estimateCost(model, usage) : 0;
 
   async function run() {
-    setRunning(true);
-    reset();
-    if (agent === "analyze") setPortrait("");
-    else setFound("");
+    const a = agent; // фиксируем этап на момент запуска
+    setRunningAgent(a);
+    // очищаем ТОЛЬКО текущий этап
+    setTraces((t) => ({ ...t, [a]: [] }));
+    setUsages((u) => ({ ...u, [a]: null }));
+    setErrors((e) => ({ ...e, [a]: null }));
+    setReports((r) => ({ ...r, [a]: "" }));
+
+    const onEvent = (ev) => {
+      if (ev.type === "final") {
+        setUsages((u) => ({ ...u, [a]: ev.usage }));
+        setReports((r) => ({ ...r, [a]: ev.report }));
+      } else if (ev.type === "error") {
+        setErrors((e) => ({ ...e, [a]: ev.message }));
+      } else {
+        setTraces((t) => ({ ...t, [a]: [...t[a], ev] }));
+      }
+    };
+
     try {
-      if (agent === "analyze") await streamAnalyze({ model }, onEvent);
-      else await streamSearch({ model, portrait }, onEvent);
+      if (a === "analyze") await streamAnalyze({ model }, onEvent);
+      else await streamSearch({ model, portrait: reports.analyze }, onEvent);
     } catch (e) {
-      setError(e.message);
+      setErrors((er) => ({ ...er, [a]: e.message }));
     } finally {
-      setRunning(false);
+      setRunningAgent(null);
     }
   }
-
-  const cost = usage ? estimateCost(model, usage) : 0;
 
   return (
     <>
@@ -80,18 +86,16 @@ export default function App() {
       </header>
 
       <div className="app">
-        {/* Переключатель этапов */}
+        {/* Переключатель этапов — вкладки не сбрасывают результаты */}
         <div className="tabs">
           {AGENTS.map((a) => (
             <button
               key={a.id}
               className={`tab ${agent === a.id ? "tab-active" : ""}`}
-              onClick={() => {
-                setAgent(a.id);
-                reset();
-              }}
+              onClick={() => setAgent(a.id)}
             >
               {a.name}
+              {runningAgent === a.id && " …"}
             </button>
           ))}
         </div>
@@ -111,12 +115,11 @@ export default function App() {
               <>
                 <h2>🧭 Поиск новых</h2>
                 <p className="muted small">
-                  По портрету из этапа 1 находит похожих блогеров (через
-                  «похожие аккаунты» Instagram) и отбирает 3–5 лучших с
-                  обоснованием.
+                  По портрету из этапа 1 находит похожих блогеров (по нишевым
+                  хэштегам) и отбирает 3–5 лучших с обоснованием.
                 </p>
                 <p className="field-hint">
-                  {portrait
+                  {reports.analyze
                     ? "Портрет из этапа 1 будет использован."
                     : "Портрет ещё не построен — инструмент синтезирует его сам."}
                 </p>
@@ -129,7 +132,7 @@ export default function App() {
             </label>
 
             <button className="run-btn" onClick={run} disabled={running}>
-              {running
+              {runningAgent === agent
                 ? "Выполняется…"
                 : agent === "analyze"
                 ? "▶ Запустить анализ"
@@ -152,7 +155,7 @@ export default function App() {
           {/* Трейс шагов */}
           <section className="panel">
             <h2>Ход работы агента</h2>
-            <TraceView trace={trace} running={running} />
+            <TraceView trace={trace} running={runningAgent === agent} />
           </section>
 
           {/* Итог */}
