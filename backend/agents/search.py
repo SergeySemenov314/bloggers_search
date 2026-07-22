@@ -101,14 +101,32 @@ def run(model: str, portrait: str | None = None):
         yield {"type": "error", "message": "По хэштегам не нашлось кандидатов. "
                "Попробуйте другие хэштеги."}
         return
-    # Отсеиваем явные магазины/бренды по нику до скрейпа
-    top = []
-    for u, _cnt in counter.most_common():
-        if _looks_like_shop(u):
-            continue
-        top.append(u)
-        if len(top) >= TOP_CANDIDATES:
-            break
+
+    # Журнал показанных: исключаем уже выданных в прошлых прогонах, чтобы курсор
+    # двигался по пулу и поднимал СЛЕДУЮЩИХ авторов (без новых запросов Apify).
+    shown = apify.load_shown()
+
+    def _pick_top(skip: set) -> list:
+        """Топ-кандидаты по частоте, минус магазины и минус `skip`."""
+        picked = []
+        for u, _cnt in counter.most_common():
+            if u in skip or _looks_like_shop(u):
+                continue
+            picked.append(u)
+            if len(picked) >= TOP_CANDIDATES:
+                break
+        return picked
+
+    top = _pick_top(exclude | shown)
+    # Пул пройден до конца (новых авторов не осталось) — сбрасываем журнал и
+    # начинаем цикл заново по тому же кэшу.
+    if not top and shown:
+        apify.reset_shown()
+        shown = set()
+        yield {"type": "info", "name": "Журнал сброшен",
+               "text": "Все закэшированные авторы уже показывались — "
+               "начинаю цикл заново."}
+        top = _pick_top(exclude)
     preview = ", ".join(f"@{u}×{counter[u]}" for u in top[:10])
     yield {"type": "tool_result", "name": "hashtag_search",
            "output": f"Постов собрано: {len(posts)}. Уникальных авторов: "
@@ -179,6 +197,9 @@ def run(model: str, portrait: str | None = None):
         return
 
     report = "".join(b.text for b in msg.content if b.type == "text")
+    # Двигаем курсор: помечаем выданных кандидатов показанными, чтобы в следующий
+    # раз из того же кэша поднялись следующие авторы.
+    apify.add_shown(top)
     usage = {
         "input_tokens": msg.usage.input_tokens,
         "output_tokens": msg.usage.output_tokens,

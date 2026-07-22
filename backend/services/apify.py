@@ -29,6 +29,48 @@ _DIR = os.path.dirname(__file__)
 _BASE_CACHE_FILE = os.path.join(_DIR, "..", ".base_profiles.json")
 # Кэш прочего (хэштеги, кандидаты) — можно удалять для свежего поиска.
 _CACHE_FILE = os.path.join(_DIR, "..", ".apify_cache.json")
+# Журнал уже показанных кандидатов — чтобы «новые» не повторялись из кэша.
+# Курсор двигается по одному и тому же собранному пулу авторов, поэтому каждый
+# прогон поднимает СЛЕДУЮЩИХ авторов без единого нового запроса к Apify.
+_SHOWN_FILE = os.path.join(_DIR, "..", ".shown_candidates.json")
+
+
+def load_shown() -> set[str]:
+    """Ники, уже выданные как «новые» в прошлых прогонах."""
+    try:
+        with open(_SHOWN_FILE, encoding="utf-8") as f:
+            return {str(u).lower() for u in json.load(f).get("shown", [])}
+    except (OSError, ValueError):
+        return set()
+
+
+def add_shown(usernames) -> None:
+    """Дописывает ники в журнал показанных (без дублей, сохраняя порядок)."""
+    shown = []
+    try:
+        with open(_SHOWN_FILE, encoding="utf-8") as f:
+            shown = list(json.load(f).get("shown", []))
+    except (OSError, ValueError):
+        shown = []
+    seen = {str(u).lower() for u in shown}
+    for u in usernames:
+        lu = str(u).lower()
+        if lu not in seen:
+            shown.append(lu)
+            seen.add(lu)
+    try:
+        with open(_SHOWN_FILE, "w", encoding="utf-8") as f:
+            json.dump({"shown": shown}, f, ensure_ascii=False)
+    except OSError:
+        pass
+
+
+def reset_shown() -> None:
+    """Сбрасывает журнал (пул кандидатов пройден до конца — начинаем заново)."""
+    try:
+        os.remove(_SHOWN_FILE)
+    except OSError:
+        pass
 
 
 def _cache_key(actor: str, payload: dict) -> str:

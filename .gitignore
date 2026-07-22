@@ -15,6 +15,7 @@ node_modules/
 # Локальный кэш Apify (данные скрейпа)
 backend/.apify_cache.json
 backend/.base_profiles.json
+backend/.shown_candidates.json
 
 # Инструментальное
 .claude/
