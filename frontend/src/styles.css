@@ -232,6 +232,40 @@ body {
   border-color: var(--accent);
   background: var(--accent-soft);
 }
+/* завершённый этап — зелёная отметка */
+.tab-done,
+.tab-done.tab-active {
+  color: #16a34a;
+  border-color: #16a34a;
+}
+
+/* Верхняя панель: модель + запуск всего процесса */
+.runbar {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  margin-top: 18px;
+}
+.runbar .select {
+  min-width: 190px;
+  margin-top: 0; /* гасим глобальный margin-top:8px, иначе селект съезжает вниз */
+}
+.runbar .run-btn {
+  margin-top: 0;
+  width: auto;
+  white-space: nowrap;
+}
+.model-pick {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-left: auto;
+}
+.model-label {
+  color: var(--muted);
+  font-size: 13px;
+  white-space: nowrap;
+}
 
 /* ── Раскладка ── */
 .layout {

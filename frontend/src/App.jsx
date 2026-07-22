@@ -27,12 +27,6 @@ const RESULT_TITLE = {
   offers: "Готовые офферы",
 };
 
-const RUN_LABEL = {
-  analyze: "▶ Запустить анализ",
-  search: "▶ Найти похожих",
-  offers: "▶ Сгенерировать офферы",
-};
-
 // Бриф бренда по умолчанию (можно править прямо в интерфейсе).
 const DEFAULT_BRIEF = `Бренд: LD LATTE (LDLATTE) — женская одежда, продаётся на Wildberries. Instagram: @ldlatte.
 Стиль: женственные элегантные образы — костюмы-двойки, шорты, юбки, топы и корсеты, комплекты из льна, твида и атласа. Европейская эстетика, чистая подача. Ценник ~1500–4500 ₽.
@@ -66,13 +60,17 @@ export default function App() {
   const [model, setModel] = useState("claude-haiku-4-5");
   const [brief, setBrief] = useState(saved.brief ?? DEFAULT_BRIEF);
 
-  // какой этап сейчас выполняется (null — ничего)
+  // какой этап сейчас выполняется (null — ничего) и какие уже завершены
   const [runningAgent, setRunningAgent] = useState(null);
+  const [completed, setCompleted] = useState({
+    analyze: false,
+    search: false,
+    offers: false,
+  });
 
-  // всё состояние держим ОТДЕЛЬНО по каждому этапу, чтобы переключение
-  // вкладок не стирало результаты; и восстанавливаем из localStorage
-  // домешиваем дефолты, чтобы все три этапа всегда были в состоянии
-  // (сохранённое из localStorage может быть старого формата, без offers)
+  // всё состояние держим ОТДЕЛЬНО по каждому этапу; домешиваем дефолты, чтобы
+  // все три этапа всегда были в состоянии (localStorage может быть старого
+  // формата, без offers), и восстанавливаем из localStorage
   const [traces, setTraces] = useState({
     analyze: [],
     search: [],
@@ -108,37 +106,63 @@ export default function App() {
   const running = runningAgent !== null;
   const cost = usage ? estimateCost(model, usage) : 0;
 
-  async function run() {
-    const a = agent; // фиксируем этап на момент запуска
+  // Прогон одного этапа: стримит, пишет состояние, возвращает итоговый отчёт.
+  function runStage(a, extra) {
     setRunningAgent(a);
-    // очищаем ТОЛЬКО текущий этап
     setTraces((t) => ({ ...t, [a]: [] }));
     setUsages((u) => ({ ...u, [a]: null }));
     setErrors((e) => ({ ...e, [a]: null }));
     setReports((r) => ({ ...r, [a]: "" }));
 
+    let report = "";
+    let err = null;
     const onEvent = (ev) => {
       if (ev.type === "final") {
+        report = ev.report;
         setUsages((u) => ({ ...u, [a]: ev.usage }));
         setReports((r) => ({ ...r, [a]: ev.report }));
       } else if (ev.type === "error") {
+        err = ev.message;
         setErrors((e) => ({ ...e, [a]: ev.message }));
       } else {
         setTraces((t) => ({ ...t, [a]: [...t[a], ev] }));
       }
     };
 
+    let call;
+    if (a === "analyze") call = streamAnalyze({ model }, onEvent);
+    else if (a === "search")
+      call = streamSearch({ model, portrait: extra.portrait }, onEvent);
+    else call = streamOffers({ model, bloggers: extra.bloggers, brief }, onEvent);
+
+    return call
+      .catch((e) => {
+        err = e.message;
+        setErrors((er) => ({ ...er, [a]: e.message }));
+      })
+      .then(() => ({ report, err }));
+  }
+
+  // Прогон всего процесса: этап 1 → 2 → 3, с переключением вкладок и зелёной
+  // отметкой завершённых. Результат каждого этапа передаётся в следующий.
+  async function runAll() {
+    if (running) return;
+    setCompleted({ analyze: false, search: false, offers: false });
     try {
-      if (a === "analyze") await streamAnalyze({ model }, onEvent);
-      else if (a === "search")
-        await streamSearch({ model, portrait: reports.analyze }, onEvent);
-      else
-        await streamOffers(
-          { model, bloggers: reports.search, brief },
-          onEvent
-        );
-    } catch (e) {
-      setErrors((er) => ({ ...er, [a]: e.message }));
+      setAgent("analyze");
+      const r1 = await runStage("analyze", {});
+      if (r1.err) return;
+      setCompleted((c) => ({ ...c, analyze: true }));
+
+      setAgent("search");
+      const r2 = await runStage("search", { portrait: r1.report });
+      if (r2.err) return;
+      setCompleted((c) => ({ ...c, search: true }));
+
+      setAgent("offers");
+      const r3 = await runStage("offers", { bloggers: r2.report });
+      if (r3.err) return;
+      setCompleted((c) => ({ ...c, offers: true }));
     } finally {
       setRunningAgent(null);
     }
@@ -155,14 +179,30 @@ export default function App() {
       </header>
 
       <div className="app">
-        {/* Переключатель этапов — вкладки не сбрасывают результаты */}
+        {/* Верхняя панель: модель + запуск всего процесса */}
+        <div className="runbar">
+          <button className="run-btn" onClick={runAll} disabled={running}>
+            {running ? "Выполняется…" : "▶ Запустить весь процесс"}
+          </button>
+          <div className="model-pick">
+            <span className="model-label">Выбранная модель</span>
+            <Select value={model} options={MODELS} onChange={setModel} />
+          </div>
+        </div>
+
+        {/* Вкладки: активная подсвечена, завершённые — зелёные. Не сбрасывают
+            результаты; во время прогона переключаются автоматически. */}
         <div className="tabs">
           {AGENTS.map((a) => (
             <button
               key={a.id}
-              className={`tab ${agent === a.id ? "tab-active" : ""}`}
+              className={
+                `tab ${agent === a.id ? "tab-active" : ""} ` +
+                (completed[a.id] ? "tab-done" : "")
+              }
               onClick={() => setAgent(a.id)}
             >
+              {completed[a.id] && "✓ "}
               {a.name}
               {runningAgent === a.id && " …"}
             </button>
@@ -170,7 +210,7 @@ export default function App() {
         </div>
 
         <div className="layout">
-          {/* Панель управления */}
+          {/* Панель управления — без кнопок запуска, только пояснения/бриф */}
           <aside className="panel controls">
             {agent === "analyze" && (
               <>
@@ -189,11 +229,6 @@ export default function App() {
                   По портрету из этапа 1 находит похожих блогеров (по нишевым
                   хэштегам) и отбирает 3–5 лучших с обоснованием.
                 </p>
-                <p className="field-hint">
-                  {reports.analyze
-                    ? "Портрет из этапа 1 будет использован."
-                    : "Портрет ещё не построен — инструмент синтезирует его сам."}
-                </p>
               </>
             )}
 
@@ -203,11 +238,6 @@ export default function App() {
                 <p className="muted small">
                   На каждого блогера из этапа 2 — тёплое персональное сообщение
                   о бартере с обоснованием.
-                </p>
-                <p className="field-hint">
-                  {reports.search
-                    ? "Блогеры из этапа 2 будут использованы."
-                    : "Сначала запустите этап 2 «Поиск новых»."}
                 </p>
                 <label>
                   Бриф бренда и условия бартера
@@ -220,15 +250,6 @@ export default function App() {
               </>
             )}
 
-            <label>
-              Модель
-              <Select value={model} options={MODELS} onChange={setModel} />
-            </label>
-
-            <button className="run-btn" onClick={run} disabled={running}>
-              {runningAgent === agent ? "Выполняется…" : RUN_LABEL[agent]}
-            </button>
-
             {usage && (
               <div className="usage">
                 <div>
@@ -236,7 +257,7 @@ export default function App() {
                   <b>{usage.output_tokens}</b> выход
                 </div>
                 <div>
-                  Стоимость прогона: <b>${cost.toFixed(5)}</b>
+                  Стоимость этапа: <b>${cost.toFixed(5)}</b>
                 </div>
               </div>
             )}
