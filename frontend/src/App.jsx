@@ -8,12 +8,9 @@ import {
   estimateCost,
 } from "./api.js";
 import TraceView from "./components/TraceView.jsx";
-import Select from "./components/Select.jsx";
 
-const MODELS = [
-  { id: "claude-haiku-4-5", name: "Haiku 4.5 (дёшево)" },
-  { id: "claude-sonnet-5", name: "Sonnet 5 (точнее)" },
-];
+// модель зафиксирована на Haiku 4.5 (дёшево); выбор модели в интерфейсе убран
+const MODEL = "claude-haiku-4-5";
 
 const AGENTS = [
   { id: "analyze", name: "🔍 Анализ базы" },
@@ -40,6 +37,19 @@ const MD_COMPONENTS = {
   ),
 };
 
+// ведущие заголовки уровня 1–2 дублируют заголовок панели — срезаем их
+// (Claude непоследователен: иногда # , иногда ## , иногда оба). Останавливаемся
+// на ### — это уже содержательные подзаголовки (ники блогеров и т.п.).
+const stripTopHeading = (md) => {
+  let s = md || "";
+  while (true) {
+    const next = s.replace(/^\s*#{1,2}(?!#)\s+.*(?:\r?\n)+/, "");
+    if (next === s) break;
+    s = next;
+  }
+  return s;
+};
+
 // пустое состояние по каждому этапу
 const empty = () => ({ analyze: null, search: null, offers: null });
 
@@ -57,7 +67,7 @@ export default function App() {
   const saved = loadSaved();
 
   const [agent, setAgent] = useState("analyze");
-  const [model, setModel] = useState("claude-haiku-4-5");
+  const model = MODEL;
   const [brief, setBrief] = useState(saved.brief ?? DEFAULT_BRIEF);
 
   // какой этап сейчас выполняется (null — ничего) и какие уже завершены
@@ -147,6 +157,16 @@ export default function App() {
   // отметкой завершённых. Результат каждого этапа передаётся в следующий.
   async function runAll() {
     if (running) return;
+    // чистим прошлый прогон полностью (и localStorage) перед новым
+    try {
+      localStorage.removeItem(LS_KEY);
+    } catch {
+      // недоступно — не критично
+    }
+    setTraces({ analyze: [], search: [], offers: [] });
+    setUsages(empty());
+    setErrors(empty());
+    setReports({ analyze: "", search: "", offers: "" });
     setCompleted({ analyze: false, search: false, offers: false });
     try {
       setAgent("analyze");
@@ -179,15 +199,18 @@ export default function App() {
       </header>
 
       <div className="app">
-        {/* Верхняя панель: модель + запуск всего процесса */}
+        {/* Верхняя панель: запуск всего процесса */}
         <div className="runbar">
           <button className="run-btn" onClick={runAll} disabled={running}>
-            {running ? "Выполняется…" : "▶ Запустить весь процесс"}
+            {running ? (
+              <>
+                <span className="spinner" />
+                Выполняется…
+              </>
+            ) : (
+              "▶ Запустить весь процесс"
+            )}
           </button>
-          <div className="model-pick">
-            <span className="model-label">Выбранная модель</span>
-            <Select value={model} options={MODELS} onChange={setModel} />
-          </div>
         </div>
 
         {/* Вкладки: активная подсвечена, завершённые — зелёные. Не сбрасывают
@@ -204,7 +227,7 @@ export default function App() {
             >
               {completed[a.id] && "✓ "}
               {a.name}
-              {runningAgent === a.id && " …"}
+              {runningAgent === a.id && <span className="spinner-sm" />}
             </button>
           ))}
         </div>
@@ -227,7 +250,7 @@ export default function App() {
                 <h2>🧭 Поиск новых</h2>
                 <p className="muted small">
                   По портрету из этапа 1 находит похожих блогеров (по нишевым
-                  хэштегам) и отбирает 3–5 лучших с обоснованием.
+                  хэштегам) и отбирает 5 лучших с обоснованием.
                 </p>
               </>
             )}
@@ -276,7 +299,7 @@ export default function App() {
             {result ? (
               <div className="markdown">
                 <ReactMarkdown remarkPlugins={[remarkGfm]} components={MD_COMPONENTS}>
-                  {result}
+                  {stripTopHeading(result)}
                 </ReactMarkdown>
               </div>
             ) : (

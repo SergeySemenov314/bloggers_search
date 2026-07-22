@@ -74,7 +74,7 @@ def run(model: str, portrait: str | None = None):
         yield {"type": "error", "message": "Не задан APIFY_TOKEN — этап 2 использует Apify."}
         return
     try:
-        base_by_user, base_raw = apify.fetch_profiles(handles)
+        base_by_user, base_raw = apify.fetch_base_profiles(handles)
     except Exception as e:  # noqa: BLE001
         yield {"type": "error", "message": f"Ошибка Apify (база): {e}"}
         return
@@ -92,7 +92,10 @@ def run(model: str, portrait: str | None = None):
     except Exception as e:  # noqa: BLE001
         yield {"type": "error", "message": f"Ошибка Apify (хэштеги): {e}"}
         return
-    exclude = {h.lower() for h in handles} | {p.username for p in base_ok}
+    # Исключаем всех, кто уже в нашей базе (и по нику из таблицы, и по факту
+    # спарсенных профилей) — нормализуем @ и регистр, чтобы ничего не просочилось.
+    norm = lambda u: (u or "").strip().lstrip("@").lower()  # noqa: E731
+    exclude = {norm(h) for h in handles} | {norm(p.username) for p in base_ok}
     counter = _candidates_from_posts(posts, exclude)
     if not counter:
         yield {"type": "error", "message": "По хэштегам не нашлось кандидатов. "
@@ -122,7 +125,9 @@ def run(model: str, portrait: str | None = None):
     except Exception as e:  # noqa: BLE001
         yield {"type": "error", "message": f"Ошибка Apify (кандидаты): {e}"}
         return
-    scraped = [p for p in cand_by_user.values() if p.ok]
+    # Гарантированно исключаем тех, кто уже в базе (страховка поверх отсева выше)
+    scraped = [p for p in cand_by_user.values()
+               if p.ok and norm(p.username) not in exclude]
     # Отсев мелких/неактивных — чтобы Claude выбирал из чистого пула
     candidates = [p for p in scraped
                   if p.followers >= MIN_FOLLOWERS and p.posts >= MIN_POSTS]
@@ -159,6 +164,8 @@ def run(model: str, portrait: str | None = None):
         portrait=portrait.strip(),
         candidates=_format_profiles(candidates),
     )
+    yield {"type": "info", "name": "📋 Промпт (system)", "text": SEARCH_SYSTEM}
+    yield {"type": "info", "name": "📋 Промпт (запрос)", "text": user_prompt}
     try:
         with client.messages.stream(
             model=model,

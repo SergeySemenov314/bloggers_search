@@ -28,6 +28,8 @@ def run(model: str, bloggers: str | None = None, brief: str | None = None):
         api_key=os.environ.get("ANTHROPIC_API_KEY"), timeout=90.0, max_retries=1
     )
     user_prompt = OFFERS_USER.format(brief=brief.strip(), bloggers=bloggers.strip())
+    yield {"type": "info", "name": "📋 Промпт (system)", "text": OFFERS_SYSTEM}
+    yield {"type": "info", "name": "📋 Промпт (запрос)", "text": user_prompt}
     try:
         with client.messages.stream(
             model=model,

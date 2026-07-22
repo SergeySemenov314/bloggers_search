@@ -22,10 +22,13 @@ _URL_TMPL = "https://api.apify.com/v2/acts/{actor}/run-sync-get-dataset-items"
 # Акторы отрабатывают за 1-3 минуты. Даём запас.
 _TIMEOUT = 300
 
-# Кэш сырых ответов Apify (на период разработки): один и тот же список ников
-# берётся с диска, чтобы не платить за повторные прогоны. Удалите файл, чтобы
-# принудительно перезапросить свежие данные.
-_CACHE_FILE = os.path.join(os.path.dirname(__file__), "..", ".apify_cache.json")
+_DIR = os.path.dirname(__file__)
+# Кэш базы из таблицы — отдельный стабильный файл: собирается один раз и не
+# зависит от прогонов поиска. Кэш поиска (хэштеги + кандидаты) можно чистить,
+# не трогая базу.
+_BASE_CACHE_FILE = os.path.join(_DIR, "..", ".base_profiles.json")
+# Кэш прочего (хэштеги, кандидаты) — можно удалять для свежего поиска.
+_CACHE_FILE = os.path.join(_DIR, "..", ".apify_cache.json")
 
 
 def _cache_key(actor: str, payload: dict) -> str:
@@ -33,24 +36,24 @@ def _cache_key(actor: str, payload: dict) -> str:
     return hashlib.md5(blob.encode("utf-8")).hexdigest()
 
 
-def _cache_load(key: str):
+def _cache_load(key: str, cache_file: str):
     try:
-        with open(_CACHE_FILE, encoding="utf-8") as f:
+        with open(cache_file, encoding="utf-8") as f:
             return json.load(f).get(key)
     except (OSError, ValueError):
         return None
 
 
-def _cache_save(key: str, items: list) -> None:
+def _cache_save(key: str, items: list, cache_file: str) -> None:
     data = {}
     try:
-        with open(_CACHE_FILE, encoding="utf-8") as f:
+        with open(cache_file, encoding="utf-8") as f:
             data = json.load(f)
     except (OSError, ValueError):
         data = {}
     data[key] = items
     try:
-        with open(_CACHE_FILE, "w", encoding="utf-8") as f:
+        with open(cache_file, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False)
     except OSError:
         pass
@@ -109,10 +112,10 @@ def _to_profile(item: dict) -> ProfileData:
     )
 
 
-def _run_actor(actor: str, payload: dict) -> list:
+def _run_actor(actor: str, payload: dict, cache_file: str = _CACHE_FILE) -> list:
     """Запускает актор (с кэшем на диске) и возвращает сырой список записей."""
     key = _cache_key(actor, payload)
-    items = _cache_load(key)
+    items = _cache_load(key, cache_file)
     if items is not None:
         return items
 
@@ -128,22 +131,30 @@ def _run_actor(actor: str, payload: dict) -> list:
     items = resp.json()
     if not isinstance(items, list):
         raise RuntimeError(f"Неожиданный ответ Apify: {str(items)[:400]}")
-    _cache_save(key, items)
+    _cache_save(key, items, cache_file)
     return items
 
 
-def fetch_profiles(usernames: list[str]) -> tuple[dict[str, ProfileData], list]:
-    """Данные профилей по списку ников.
-
-    Возвращает ({ник: ProfileData}, сырой список записей).
-    """
-    items = _run_actor(_PROFILE_ACTOR, {"usernames": usernames})
+def _profiles_from_items(items: list) -> tuple[dict[str, ProfileData], list]:
     result: dict[str, ProfileData] = {}
     for item in items:
         p = _to_profile(item)
         if p.username:
             result[p.username] = p
     return result, items
+
+
+def fetch_profiles(usernames: list[str]) -> tuple[dict[str, ProfileData], list]:
+    """Данные профилей-кандидатов (кэш поиска: .apify_cache.json)."""
+    return _profiles_from_items(_run_actor(_PROFILE_ACTOR, {"usernames": usernames}))
+
+
+def fetch_base_profiles(usernames: list[str]) -> tuple[dict[str, ProfileData], list]:
+    """Данные профилей БАЗЫ из таблицы — отдельный стабильный кэш
+    (.base_profiles.json), не зависящий от прогонов поиска."""
+    return _profiles_from_items(
+        _run_actor(_PROFILE_ACTOR, {"usernames": usernames}, _BASE_CACHE_FILE)
+    )
 
 
 def fetch_hashtag_posts(hashtags: list[str], results_limit: int = 30) -> list:

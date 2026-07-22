@@ -54,7 +54,7 @@ def _collect_apify(handles):
            "text": f"instagram-profile-scraper на {len(handles)} профилей. "
            "Актор работает на стороне Apify, это займёт 1-3 минуты…"}
     try:
-        by_user, raw = apify.fetch_profiles(handles)
+        by_user, raw = apify.fetch_base_profiles(handles)
     except Exception as e:  # noqa: BLE001
         yield {"type": "error", "message": f"Ошибка Apify: {e}"}
         yield ("collected", None)
@@ -152,6 +152,12 @@ def run(model: str):
 
     # 3. Синтез портрета через Claude
     yield {"type": "node", "name": "Синтез портрета (Claude)"}
+    user_prompt = ANALYZE_USER.format(
+        collected=len(collected), total=len(handles),
+        profiles=_format_profiles(collected),
+    )
+    yield {"type": "info", "name": "📋 Промпт (system)", "text": ANALYZE_SYSTEM}
+    yield {"type": "info", "name": "📋 Промпт (запрос)", "text": user_prompt}
     try:
         report, usage = synthesize_portrait(model, collected, len(handles))
     except Exception as e:  # noqa: BLE001
