@@ -1,0 +1,6 @@
+fastapi==0.115.*
+uvicorn[standard]==0.30.*
+anthropic>=0.49
+instaloader==4.13.*
+python-dotenv==1.0.*
+requests==2.32.*

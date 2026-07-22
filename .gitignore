@@ -1,0 +1,23 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# Секреты и окружение — НЕ коммитим
+.env
+backend/.env
+
+# Node
+node_modules/
+
+# Локальный кэш Apify (данные скрейпа)
+backend/.apify_cache.json
+
+# Инструментальное
+.claude/
+
+# ОС
+.DS_Store
+Thumbs.db

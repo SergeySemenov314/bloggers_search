@@ -1,0 +1,532 @@
+:root {
+  --bg: #0f0f1a;
+  --panel: #16162a;
+  --panel-inner: #0f0f1a;
+  --border: #2a2a4a;
+  --text: #e6e9f0;
+  --text-strong: #f5f7fa;
+  --muted: #777;
+  --muted-dim: #5c5c5c;
+
+  /* Акцент — оранжевый */
+  --accent: #ff8c42;
+  --accent-hover: #ffa869;
+  --accent-soft: rgba(255, 140, 66, 0.1);
+  --accent-border: rgba(255, 140, 66, 0.4);
+
+  /* Семантические цвета */
+  --tool: #818cf8;
+  --result: #4ade80;
+  --decision: #facc15;
+  --error: #f87171;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-size: 14px;
+}
+
+/* ── Скроллбары: узкие и тёмные ── */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #24243c transparent;
+}
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #24243c;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #33334f;
+}
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+.app {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 24px;
+}
+
+/* ── Header — во всю ширину экрана ── */
+.header {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--border);
+  padding: 28px 40px;
+}
+.header-emoji {
+  font-size: 52px;
+  line-height: 1;
+}
+.header h1 {
+  margin: 0 0 4px;
+  font-size: 1.8rem;
+  color: var(--accent);
+}
+.header .muted {
+  margin: 0;
+  font-size: 0.875rem;
+}
+
+.muted {
+  color: var(--muted);
+}
+.small {
+  font-size: 12px;
+}
+
+/* ── Блок обзора тестовой базы ── */
+.dataset {
+  margin-top: 18px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 20px 24px;
+}
+.dataset h2 {
+  margin: 0 0 10px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--accent);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.dataset p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.6;
+}
+.dataset b {
+  color: var(--text-strong);
+}
+/* На телефоне блок сворачиваемый */
+.dataset summary {
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--accent);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  user-select: none;
+}
+.dataset summary + p {
+  margin-top: 10px;
+}
+
+/* ── Кастомный селект (список ровно по ширине поля) ── */
+.select {
+  position: relative;
+  margin-top: 8px;
+}
+.select-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  padding: 9px 10px;
+  background: var(--panel-inner);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  font: inherit;
+  font-weight: 400;
+  text-align: left;
+  cursor: pointer;
+}
+.select-trigger:hover,
+.select-trigger:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+.select-arrow {
+  flex-shrink: 0;
+  font-size: 11px;
+  color: var(--muted);
+}
+.select-list {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0; /* ← список ровно по ширине поля */
+  margin: 0;
+  padding: 4px;
+  list-style: none;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+  max-height: 240px;
+  overflow-y: auto;
+}
+.select-option {
+  display: block;
+  width: 100%;
+  padding: 8px 10px;
+  background: none;
+  border: none;
+  border-radius: 6px;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.select-option:hover {
+  background: var(--panel-inner);
+}
+.select-option.is-selected {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+/* Подсказка под полем ввода */
+.field-hint {
+  margin: 6px 0 0;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+/* ── Вкладки агентов ── */
+.tabs {
+  display: flex;
+  gap: 8px;
+  margin-top: 18px;
+}
+.tab {
+  padding: 9px 16px;
+  border: 1px solid var(--border);
+  background: var(--panel);
+  border-radius: 10px;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 600;
+  color: var(--muted);
+  transition: border-color 0.2s, color 0.2s, background 0.2s;
+}
+.tab:hover {
+  color: var(--accent);
+  border-color: var(--accent-border);
+}
+.tab-active {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+/* ── Раскладка ── */
+.layout {
+  display: grid;
+  grid-template-columns: 300px 1fr 1fr;
+  gap: 24px;
+  margin-top: 16px;
+}
+@media (max-width: 1000px) {
+  .layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ── Карточка / панель ── */
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 24px;
+  /* отступ сверху при автоскролле — чтобы заголовок не прилипал к кромке */
+  scroll-margin-top: 16px;
+}
+.panel h2 {
+  margin: 0 0 18px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--accent);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* ── Форма ── */
+.controls label {
+  display: block;
+  margin: 14px 0 5px;
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--text-strong);
+}
+.controls input,
+.controls select,
+.controls textarea {
+  display: block;
+  width: 100%;
+  margin-top: 8px;
+  padding: 9px 10px;
+  background: var(--panel-inner);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  font: inherit;
+  font-weight: 400;
+}
+
+/* Textarea задачи — фиксированная высота, без ручного растягивания */
+.controls textarea {
+  height: 84px;
+  resize: none;
+}
+.controls input::placeholder,
+.controls textarea::placeholder {
+  color: var(--muted-dim);
+}
+.controls input:focus,
+.controls select:focus,
+.controls textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.run-btn {
+  margin-top: 18px;
+  width: 100%;
+  padding: 11px;
+  background: var(--accent);
+  color: #0b1220;
+  border: none;
+  border-radius: 8px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.run-btn:hover:not(:disabled) {
+  background: var(--accent-hover);
+}
+.run-btn:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.usage {
+  margin-top: 18px;
+  padding: 12px;
+  background: var(--accent-soft);
+  border: 1px solid var(--accent-border);
+  border-radius: 8px;
+  font-size: 13px;
+  line-height: 1.6;
+}
+.usage b {
+  color: var(--text-strong);
+}
+
+/* ── Трейс ── */
+.trace {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.step {
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--border);
+  border-radius: 10px;
+  padding: 9px 12px;
+  animation: fadein 0.25s ease;
+}
+.step-node {
+  border-left-color: var(--accent);
+  background: var(--accent-soft);
+}
+.step-tool_call {
+  border-left-color: var(--tool);
+}
+.step-tool_result {
+  border-left-color: var(--result);
+}
+.step-decision {
+  border-left-color: var(--decision);
+}
+.step-info {
+  border-left-color: var(--accent);
+}
+.step-error {
+  border-left-color: var(--error);
+}
+.step-pending {
+  border-left-color: var(--accent);
+  color: var(--muted);
+}
+
+.step-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+}
+.step-icon {
+  font-size: 14px;
+}
+.node-name {
+  font-weight: 700;
+  color: var(--text-strong);
+}
+
+.step-body {
+  margin: 8px 0 0;
+  padding: 9px;
+  background: var(--panel-inner);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 12px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 220px;
+  overflow: auto;
+}
+
+code {
+  background: var(--panel-inner);
+  border: 1px solid var(--border);
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-size: 12px;
+  color: var(--accent);
+}
+
+.spin {
+  display: inline-block;
+  animation: spin 1.4s linear infinite;
+}
+
+/* ── Результат / Markdown ── */
+.markdown {
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--text);
+}
+.markdown h1 {
+  font-size: 18px;
+}
+.markdown h2 {
+  font-size: 15px;
+  margin-top: 16px;
+  color: var(--accent);
+}
+.markdown a {
+  color: var(--accent);
+}
+.markdown table {
+  display: block;
+  max-width: 100%;
+  overflow-x: auto;
+  border-collapse: collapse;
+}
+.markdown td,
+.markdown th {
+  border: 1px solid var(--border);
+  padding: 4px 8px;
+  white-space: nowrap;
+}
+.markdown th {
+  background: var(--panel-inner);
+  color: var(--text-strong);
+}
+.markdown pre {
+  overflow-x: auto;
+  background: var(--panel-inner);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 10px;
+}
+
+.error {
+  color: var(--error);
+  background: rgba(248, 113, 113, 0.1);
+  border: 1px solid rgba(248, 113, 113, 0.3);
+  padding: 10px;
+  border-radius: 8px;
+}
+
+/* ── Бейдж решения по возврату ── */
+.badge {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 999px;
+  font-weight: 700;
+  font-size: 13px;
+  margin-bottom: 12px;
+  color: #0f0f1a;
+}
+.badge-refund {
+  background: #4ade80;
+}
+.badge-exchange {
+  background: #38bdf8;
+}
+.badge-reject {
+  background: #f87171;
+}
+.badge-escalate {
+  background: #facc15;
+}
+
+@keyframes fadein {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ── Адаптив ── */
+@media (max-width: 1000px) {
+  /* запас под панель адреса мобильного браузера при автоскролле */
+  .panel {
+    scroll-margin-top: 80px;
+  }
+  .header {
+    padding: 16px 14px;
+    gap: 12px;
+  }
+  .header-emoji {
+    font-size: 34px;
+  }
+  .header h1 {
+    font-size: 1.15rem;
+    margin-bottom: 2px;
+  }
+  .header .muted {
+    font-size: 0.75rem;
+    line-height: 1.3;
+  }
+  .app {
+    padding: 16px 12px;
+  }
+  .panel {
+    padding: 16px;
+  }
+}
